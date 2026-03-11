@@ -1,0 +1,40 @@
+{
+  "name": "datingapp-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rimraf dist/",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "local": "nodemon src/index.ts",
+    "copy-assets": "copyfiles -u 1 public/**/* dist/assets/",
+    "dist": "npm run clean && npm run build && npm run copy-assets",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Prasad Nadendla",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/web-push": "^3.6.4",
+    "copyfiles": "^2.4.1",
+    "nodemon": "^3.1.11",
+    "rimraf": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@apollo/client": "4.1.4",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@google-cloud/storage": "^7.19.0",
+    "fastify": "^5.7.4",
+    "fastify-metrics": "^12.1.0",
+    "otpauth": "^9.5.0",
+    "sharp": "^0.34.5",
+    "zod": "^4.3.6"
+  }
+}

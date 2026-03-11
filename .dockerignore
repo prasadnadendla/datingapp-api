@@ -1,0 +1,33 @@
+# Ignore installed dependencies (we install inside the container)
+node_modules
+
+# Debug logs
+npm-debug.log
+*.log
+
+# Environment variables (sensitive info)
+.env
+.env.*
+
+# Build and coverage artifacts
+dist
+build
+coverage
+
+# OS/editor system files
+.DS_Store
+Thumbs.db
+
+# Git and IDE folders
+.git
+.vscode
+.idea
+
+# Dockerfile and .dockerignore itself (not needed in context)
+Dockerfile*
+.dockerignore
+
+# Temporary files
+tmp/
+*.tmp
+*~

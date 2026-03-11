@@ -1,0 +1,39 @@
+{
+    "port": 3005,
+    "system_code": "4}4A~KEaQZi,XAHc%)Ajci%f;{fTw@c!",
+    "secretKey": "U7e99iZOyWFVIUlfmFVyY0wFIKYksdEeLXFIcEu5j3gIHGP79O",
+    "graphql": {
+        "endpoint": "https://gql.truelet.in/v1/graphql",
+        "subscriptionsEndpoint": "/graphql/subscriptions"
+    },
+    "ipinfo": {
+        "domain": "ip-api.com"
+    },
+    "cors": {
+        "origin": [
+            "http://localhost:4400",
+            "https://genzyy.in"
+        ],
+        "methods": [
+            "GET,PUT,PATCH,POST,DELETE"
+        ],
+        "preflightCacheMaxAge": 86400
+    },
+    "test": {
+        "phone": "+919999999999",
+        "otp": "123456",
+        "active": true
+    },
+    "vapid": {
+        "publicKey": "BO_YVmkvnzGZ6NYAD22PdyTzMV8So0JfssMHagKL4OsdlsiEJJhYZs17OiPn2u_ax3efh7yxt9Aa6F9bYVJmu1Y",
+        "privateKey": "hkCb-d8_16DlTuvNKSprSVd2gn4t2JXjTzy0De5k8Uk",
+        "subject": "mailto:prasad@trackland.in"
+    },
+    "jwt": "yFU7lLPpS75R5oaNPiz+yTq/SCG29ZR08+mVUiPwCog=",
+        "s3":{
+        "bucket":"genzyy-profiles",
+        "projectId":"clear-safeguard-466414-c7",
+        "keyFilename":"src/conf/storage-service-account.json",
+        "baseUrl":"https://images.genzyy.in/"
+    }
+}
