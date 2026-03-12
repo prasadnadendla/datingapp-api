@@ -73,3 +73,11 @@ export const UpdateProfileSchema = z.object({
   profession: z.string().max(100).optional(),
 });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+
+export const Graph = z.object({
+    operationName: z.string().max(255).describe("operation name").optional(),
+    query: z.string().trim().max(5000).describe("Graph query"),  
+    variables: z.record(z.string(), z.any()).optional().describe("Graph variables"),
+});
+
+export type GraphInput = z.infer<typeof Graph>;

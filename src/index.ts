@@ -9,7 +9,7 @@ const app = fastify({
 })
 
 setLogger(app.log)
-import { SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput} from './models/middleware'
+import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput} from './models/middleware'
 import { getTotpInstance, validate } from "./validator";
 import { sendOTP } from "./otp/twofactor";
 import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile } from './db/queries'
@@ -20,6 +20,8 @@ import { parseErrorMessage } from "./utils"
 import { Subscribe, SubscribeInput } from "./models/subscribe";
 import { deleteImageById, uploadImage } from "./db/s3";
 import multipart from "@fastify/multipart";
+import { parse } from "graphql";
+import { authorizeGraphQL } from "./graphqlauthz";
 const corsOrigin = AppConfig.cors;
 const corsOptions: { origin: RegExp[] | string[], methods: string[] } = { origin: [], methods: [] };
 corsOrigin.origin.forEach((origin, index) => {
@@ -302,6 +304,56 @@ app.post("/api/subscribe", async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" })
   }
 })
+
+app.post("/api/graph", { preHandler: [authorizeGraphQL] }, async (req, res) => {
+  try {
+    const user = req.user as object & { uid: string }
+    if (!user) {
+      res.status(401).send({ error: "Unauthorized" })
+      return;
+    }
+    const { data, error } = validate(Graph, req.body);
+    if (error) {
+      res.status(400).send(error);
+      return;
+    }
+    const graph: GraphInput = data;
+    const ast = parse(graph.query);
+    if (!ast) {
+      res.status(400).send({ error: "Invalid GraphQL query" });
+      return;
+    }
+    if (ast.definitions.length === 0 || ast.definitions.length > 1) {
+
+      res.status(400).send({ error: "Empty GraphQL query" });
+      return;
+    }
+    const definition = ast.definitions[0];
+    if (definition && definition.kind === "OperationDefinition") {
+      if (definition.operation === "query") {
+        return await executeQuery(graph.query, graph.variables || {})
+      } else if (definition.operation === "mutation") {
+        const response = await executeMutation(graph.query, graph.variables || {})
+        //TODO: for handling events such push notifications etc..
+        //onMutation(response, graph, user.uid)
+        return response;
+      }
+      res.status(400).send({ error: "Invalid GraphQL operation" });
+      return;
+    }
+    res.status(400).send({ error: "Invalid GraphQL operation" });
+  } catch (ex) {
+    const error = parseErrorMessage(ex);
+    if (error) {
+      res.status(200).send(error);
+      return;
+    }
+    req.log.error(ex, "failed to execute query")
+    res.status(500).send({ error: "Internal Server Error" })
+  }
+
+})
+
 
 app.register(multipart, {
   limits: {
