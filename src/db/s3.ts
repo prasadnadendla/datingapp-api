@@ -18,7 +18,6 @@ const SIZES = [
     { size: 200, suffix: '_200' }
 ];
 
-
 export async function uploadImage(buffer: Buffer<ArrayBufferLike>,ref?:string,is360?:boolean): Promise<{url:string} | { error: string }> {
     const baseName = crypto.randomBytes(20).toString('hex');
     const folder = `${rootFolder}/${ref?ref:''}`;

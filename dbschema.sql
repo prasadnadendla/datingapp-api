@@ -89,6 +89,36 @@ CREATE TABLE "da"."android_pushsubs" (
     timestamp INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER
 );
 -- ===========================================================
+-- SWIPES TABLE — tracks like/pass/super_like actions
+-- ===========================================================
+CREATE TABLE "da"."swipes" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    target_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    action VARCHAR(20) NOT NULL,  -- 'like', 'pass', 'super_like'
+    created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT,
+    UNIQUE(user_id, target_id)
+);
+
+CREATE INDEX idx_swipes_user_id ON da.swipes(user_id);
+CREATE INDEX idx_swipes_target_id ON da.swipes(target_id);
+
+-- ===========================================================
+-- MATCHES TABLE — created when both users like each other
+-- ===========================================================
+CREATE TABLE "da"."matches" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user1_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    user2_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT,
+    UNIQUE(user1_id, user2_id)
+);
+
+CREATE INDEX idx_matches_user1 ON da.matches(user1_id);
+CREATE INDEX idx_matches_user2 ON da.matches(user2_id);
+
+-- ===========================================================
 
 -- ===========================================================
 -- OPTIONAL: ALERTS TABLE

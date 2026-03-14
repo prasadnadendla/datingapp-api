@@ -9,6 +9,7 @@ interface PolicyEntry {
     autofill?: AutofillRules;
     restrictedFields?: Record<string, string[]>;
     requireWhere?: boolean;
+    requireOwnership?: Record<string, string[]>; // operation → fields where at least one must equal userId
 }
 
 interface GraphQLPolicy {
@@ -19,20 +20,22 @@ interface GraphQLPolicy {
 
 const GRAPHQL_POLICY: GraphQLPolicy = {
     query: {
-        allowed: ['da_users', 'da_users_by_pk'],
+        allowed: ['da_users', 'da_users_by_pk', 'da_swipes', 'da_matches'],
         autofill: {
-            da_communities: { uid: 'userId' }
+            da_communities: { uid: 'userId' },
         },
         restrictedFields: {
-            da_users: ['secret', 'password', 'email','phone'],  // cannot select these subfields
-            da_communities: ['user.secret', 'user.password', 'user.email','user.phone'],
+            da_users: ['secret', 'password', 'email', 'phone'],
+            da_communities: ['user.secret', 'user.password', 'user.email', 'user.phone'],
         },
         requireWhere: true
     },
     mutation: {
-        allowed: ['update_da_users_by_pk'],
+        allowed: ['update_da_users_by_pk', 'insert_da_swipes_one', 'insert_da_matches_one'],
         autofill: {
-            update_da_users_by_pk: { id: 'userId' }, // fill from request context          
+            update_da_users_by_pk: { id: 'userId' },
+            insert_da_swipes_one: { user_id: 'userId' },     // always set swipe.user_id from JWT
+            insert_da_matches_one: { user1_id: 'userId' },   // always set user1_id from JWT
         },
     },
     subscription: { allowed: [] },
@@ -44,9 +47,9 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
     // Placeholder for future authorization logic
     // check from support system or main app
     const user = req.user as object & { uid: string }
-    console.log("Authorizing GraphQL request for user:", req.user);
     if (!user) {
         res.status(401).send({ error: "Unauthorized" })
+        return;
     }
 
     const body = req.body;
@@ -137,17 +140,32 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
             if (autofillRules) {
                 for (const [fieldToFill, source] of Object.entries(autofillRules)) {
                     if (source === 'userId' && userId) {
-                        // Prefer GraphQL variables if the request uses them
                         if (variables.object) {
-                            // If using mutation variables pattern
+                            // Insert mutations: fill inside object
                             variables.object[fieldToFill] = userId;
                         } else if (variables.args) {
                             variables.args[fieldToFill] = userId;
                         } else if (variables.where) {
                             if (!variables.where[fieldToFill]) variables.where[fieldToFill] = {};
                             variables.where[fieldToFill]._eq = userId;
+                        } else {
+                            // Top-level variable (e.g., update_by_pk with $id)
+                            variables[fieldToFill] = userId;
                         }
                     }
+                }
+            }
+
+            // Ownership check: at least one of the specified fields must equal the logged-in userId
+            const ownershipFields = policy.requireOwnership?.[fieldName];
+            if (ownershipFields && userId) {
+                const obj = variables.object || variables;
+                const ownerMatch = ownershipFields.some((f) => obj[f] === userId);
+                if (!ownerMatch) {
+                    res.code(403).send({
+                        error: `Ownership violation: one of [${ownershipFields.join(', ')}] must be the authenticated user`,
+                    });
+                    return;
                 }
             }
         }
