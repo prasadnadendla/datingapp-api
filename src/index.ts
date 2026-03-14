@@ -375,27 +375,26 @@ app.post("/api/image", async (req, res) => {
     }
     const buffer = await file.toBuffer();
 
-    const { data, error } = validate(uploadImageSchema, {
+    const { error } = validate(uploadImageSchema, {
       image: {
-        type: file.mimetype, // Not `type` — use `mimetype`
+        type: file.mimetype,
         size: buffer.length,
         buffer,
         originalname: file.filename,
       },
-      is360: (file.fields.is360 as any)?.value
-    },);
+    });
     if (error) {
       res.status(400).send(error);
       return;
     }
-    const response = await uploadImage(buffer, user.uid, data.is360=='true'?true:false);
+    const response = await uploadImage(buffer, user.uid);
     if ('error' in response) {
       req.log.error({error:response.error}, "Image upload failed")
       res.status(500).send({ error: "Failed to upload image" })
       return;
     }
     req.log.info({url:response.url}, `Image uploaded successfully`);
-    return res.status(201).send({ is360: data.is360, url: response.url });
+    return res.status(201).send({ url: response.url });
   } catch (ex) {
     req.log.error(ex, "failed to upload image")
     res.status(500).send({ error: "Internal Server Error" })

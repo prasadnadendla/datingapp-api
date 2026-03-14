@@ -10,31 +10,26 @@ const bucketName = AppConfig.s3.bucket;
 const bucket = storage.bucket(bucketName);
 const rootFolder = 'profiles';
 const SIZES = [
-    { size: 1280, suffix: '' },
-    { size: 1920, suffix: '_1920' },
-    // { size: 2560, suffix: '_2560' },
-    { size: 640, suffix: '_640' },
-    { size: 384, suffix: '_384' },
-    { size: 200, suffix: '_200' }
+    { size: 1080, suffix: '' },       // full-view: discover card, profile detail
+    { size: 200, suffix: '_200' },     // thumbnail: match list, liked-me grid
 ];
 
-export async function uploadImage(buffer: Buffer<ArrayBufferLike>,ref?:string,is360?:boolean): Promise<{url:string} | { error: string }> {
+export async function uploadImage(buffer: Buffer<ArrayBufferLike>,ref?:string): Promise<{url:string} | { error: string }> {
     const baseName = crypto.randomBytes(20).toString('hex');
     const folder = `${rootFolder}/${ref?ref:''}`;
     const uploadPromises = SIZES.map(async ({ size, suffix }) => {
         const fileName = `${baseName}${suffix}.webp`;
         const file = bucket.file(`${folder}/${fileName}`);
 
-        // Create a fresh sharp pipeline for each size from the original buffer
         const pipeline = sharp(buffer)
             .rotate()
-            .resize(is360 && size === 1920?{width: 4096, height: 2048}:{
+            .resize({
                 width: size,
                 height: size,
                 fit: 'inside',
                 withoutEnlargement: true,
             })
-            .webp({ quality: is360 && size === 1920? 85 :size >= 640 ? 80 : 75 });
+            .webp({ quality: size >= 640 ? 80 : 75 });
 
         const webpBuffer = await pipeline.toBuffer();
 

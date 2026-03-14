@@ -37,7 +37,6 @@ export const uploadImageSchema = z.object({
   // Optional metadata
   title: z.string().max(100).optional(),
   description: z.string().max(500).optional(),
-  is360: z.string().max(5).optional()
 });
 
 export type UploadImageInput = z.infer<typeof uploadImageSchema>;
