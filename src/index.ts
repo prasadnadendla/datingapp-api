@@ -22,6 +22,8 @@ import { deleteImageById, uploadImage } from "./db/s3";
 import multipart from "@fastify/multipart";
 import { parse } from "graphql";
 import { authorizeGraphQL } from "./graphqlauthz";
+import fs from "fs";
+
 const corsOrigin = AppConfig.cors;
 const corsOptions: { origin: RegExp[] | string[], methods: string[] } = { origin: [], methods: [] };
 corsOrigin.origin.forEach((origin, index) => {
@@ -42,7 +44,10 @@ app.register(rateLimit, {
   max: 200,
   timeWindow: '1 minute'
 });
-app.register(fastifyJwt, { secret: AppConfig.jwt })
+app.register(fastifyJwt, {  secret: {
+    private: fs.readFileSync('./conf/private.key'),
+    public: fs.readFileSync('./conf/public.key')
+  }, sign: { algorithm: 'ES256',iss: 'auth.genzyy.in', aud: 'genzyy-app' }, verify: { algorithms: ['ES256'] } })
 
 app.addHook("onRequest", async (request, reply) => {
   try {
@@ -64,7 +69,9 @@ app.addHook("onRequest", async (request, reply) => {
       await request.jwtVerify()
     }
   } catch (err) {
-    reply.send(err)
+     request.log.error(err, "failed to verify token")
+     reply.status(401).send({ error: "Unauthorized" });
+     return;
   }
 })
 

@@ -23,6 +23,7 @@ const GRAPHQL_POLICY: GraphQLPolicy = {
         allowed: ['da_users', 'da_users_by_pk', 'da_swipes', 'da_matches'],
         autofill: {
             da_communities: { uid: 'userId' },
+            da_matches: { user1_id: 'userId', user2_id: 'userId' }
         },
         restrictedFields: {
             da_users: ['secret', 'password', 'email', 'phone'],
@@ -146,8 +147,12 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
                         } else if (variables.args) {
                             variables.args[fieldToFill] = userId;
                         } else if (variables.where) {
-                            if (!variables.where[fieldToFill]) variables.where[fieldToFill] = {};
-                            variables.where[fieldToFill]._eq = userId;
+                            // If field already exists in the where tree, overwrite its value (prevent spoofing)
+                            // Otherwise add it at the top level
+                            const found = deepFillField(variables.where, fieldToFill, userId);
+                            if (!found) {
+                                variables.where[fieldToFill] = { _eq: userId };
+                            }
                         } else {
                             // Top-level variable (e.g., update_by_pk with $id)
                             variables[fieldToFill] = userId;
@@ -174,6 +179,35 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
     // replace modified variables
     body.variables = variables;
     done();
+}
+
+/** Recursively walk a where object; if `field` is found, overwrite its _eq with `value`. Returns true if found. */
+function deepFillField(where: any, field: string, value: string): boolean {
+    if (!where || typeof where !== 'object') return false;
+
+    let found = false;
+
+    // Direct match at this level
+    if (field in where) {
+        if (typeof where[field] === 'object' && where[field] !== null) {
+            where[field]._eq = value;
+        } else {
+            where[field] = { _eq: value };
+        }
+        found = true;
+    }
+
+    // Recurse into logical operators (_and, _or, _not) and nested relations
+    for (const key of Object.keys(where)) {
+        const val = where[key];
+        if (Array.isArray(val)) {
+            for (const item of val) {
+                if (deepFillField(item, field, value)) found = true;
+            }
+        }
+    }
+
+    return found;
 }
 
 function collectFields(

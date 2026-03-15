@@ -7,8 +7,8 @@
     "clean": "rimraf dist/",
     "build": "tsc",
     "start": "node dist/index.js",
-    "local": "nodemon src/index.ts",
-    "copy-assets": "copyfiles -u 1 public/**/* dist/assets/",
+    "local": "npm run copy-assets && nodemon src/index.ts",
+    "copy-assets": "copyfiles -u 1 public/**/* dist/assets/ && copyfiles -u 1 src/conf/*.key dist/",
     "dist": "npm run clean && npm run build && npm run copy-assets",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
