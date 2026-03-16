@@ -596,11 +596,10 @@ app.get("/sys/matches", async (req, res) => {
       return;
     }
      const matches = await getMatches(userId);
-     matches.map((match:any) => ({
+     res.send((matches || []).map((match:any) => ({
       match_id: match.id,
       matched_user_id: match.user1_id === userId ? match.user2_id : match.user1_id
-     }))
-    res.send(matches);
+     })))
   } catch (ex) {
     req.log.error(ex, "failed to get matches")
   }
