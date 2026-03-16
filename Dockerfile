@@ -20,7 +20,7 @@ FROM node:22-slim
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist ./
 COPY package.json ./
 
 
@@ -28,4 +28,4 @@ ENV NODE_ENV=production
 EXPOSE 3001
 
 # Note: fastify-cli isn't needed at runtime if not explicitly used
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]

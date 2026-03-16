@@ -17,6 +17,7 @@ import fastifyMetrics from 'fastify-metrics'
 import fastifyJwt from "@fastify/jwt";
 import rateLimit from '@fastify/rate-limit'
 import { parseErrorMessage } from "./utils"
+import { sendPushNotification } from "./notifications"
 import { Subscribe, SubscribeInput } from "./models/subscribe";
 import { deleteImageById, uploadImage } from "./db/s3";
 import multipart from "@fastify/multipart";
@@ -333,6 +334,15 @@ async function onMutation(response: any, graph: GraphInput, userId: string) {
         if (isReciprocal) {
           const match = await createMatch(userId, targetId);
           if (match) {
+            // Notify the other user asynchronously — don't block the response
+            getUserProfile(userId).then(user => {
+              sendPushNotification(targetId, {
+                title: "It's a Match!",
+                body: `You and ${user?.name || 'someone'} liked each other!`,
+                icon: '/icons/icon-192x192.png',
+                data: { url: '/matches', matchId: match.id }
+              });
+            }).catch(() => {});
             return { ...response, data: { ...response.data, _match: match } };
           }
         }

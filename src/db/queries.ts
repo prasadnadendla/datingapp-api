@@ -281,6 +281,24 @@ export const getMatches = async (userId: string) => {
 
 
 
+export const getUserPushSubscriptions = async (userId: string) => {
+    const response = await client.query({
+        query: gql`query getWebSubs($uid: uuid!) {
+            sb_pushsubs(where: { uid: { _eq: $uid } }) {
+                web_pushsubs {
+                    endpoint
+                    keys
+                }
+                android_pushsubs {
+                    token
+                }
+            }
+        }`,
+        variables: { uid: userId }
+    });
+    return (response as any).data.sb_pushsubs?.[0] ?? null;
+}
+
 export const executeQuery = async (query: string, variables: any = {}) => {
     try {
         const response = await client.query({
