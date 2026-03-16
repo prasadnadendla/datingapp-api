@@ -12,7 +12,7 @@ setLogger(app.log)
 import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput} from './models/middleware'
 import { getTotpInstance, validate } from "./validator";
 import { sendOTP } from "./otp/twofactor";
-import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile } from './db/queries'
+import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile, checkChatPermission, getMatches, checkReciprocalSwipe, createMatch } from './db/queries'
 import fastifyMetrics from 'fastify-metrics'
 import fastifyJwt from "@fastify/jwt";
 import rateLimit from '@fastify/rate-limit'
@@ -45,8 +45,8 @@ app.register(rateLimit, {
   timeWindow: '1 minute'
 });
 app.register(fastifyJwt, {  secret: {
-    private: fs.readFileSync('./conf/private.key'),
-    public: fs.readFileSync('./conf/public.key')
+    private: fs.readFileSync('./dist/conf/private.key'),
+    public: fs.readFileSync('./dist/conf/public.key')
   }, sign: { algorithm: 'ES256',iss: 'auth.genzyy.in', aud: 'genzyy-app' }, verify: { algorithms: ['ES256'] } })
 
 app.addHook("onRequest", async (request, reply) => {
@@ -312,6 +312,38 @@ app.post("/api/subscribe", async (req, res) => {
   }
 })
 
+async function onMutation(response: any, graph: GraphInput, userId: string) {
+  try {
+    const ast = parse(graph.query);
+    const def = ast.definitions[0];
+    if (!def || def.kind !== 'OperationDefinition') return response;
+
+    const selection = def.selectionSet.selections[0];
+    if (!selection || selection.kind !== 'Field') return response;
+
+    const operationName = selection.name.value;
+
+    if (operationName === 'insert_da_swipes_one') {
+      const variables = graph.variables || {};
+      const action = variables.object?.action;
+      const targetId = variables.object?.target_id;
+
+      if ((action === 'like' || action === 'super_like') && targetId) {
+        const isReciprocal = await checkReciprocalSwipe(userId, targetId);
+        if (isReciprocal) {
+          const match = await createMatch(userId, targetId);
+          if (match) {
+            return { ...response, data: { ...response.data, _match: match } };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    app.log.error(err, 'onMutation handler failed');
+  }
+  return response;
+}
+
 app.post("/api/graph", { preHandler: [authorizeGraphQL] }, async (req, res) => {
   try {
     const user = req.user as object & { uid: string }
@@ -341,9 +373,7 @@ app.post("/api/graph", { preHandler: [authorizeGraphQL] }, async (req, res) => {
         return await executeQuery(graph.query, graph.variables || {})
       } else if (definition.operation === "mutation") {
         const response = await executeMutation(graph.query, graph.variables || {})
-        //TODO: for handling events such push notifications etc..
-        //onMutation(response, graph, user.uid)
-        return response;
+        return await onMutation(response, graph, user.uid);
       }
       res.status(400).send({ error: "Invalid GraphQL operation" });
       return;
@@ -530,6 +560,42 @@ app.put("/api/profile", async (req, res) => {
     res.status(500).send({ error: "Internal Server Error" })
   }
 })
+
+
+app.get("/sys/chat/permitted", async (req, res) => {
+  try {
+    const { userId, targetId } = req.query as { userId: string, targetId: string }
+    if (!userId || !targetId) {
+      res.status(400).send({ error: "Missing required parameters" });
+      return;
+    }
+    const permitted = await checkChatPermission(userId, targetId);
+    res.send({ permitted });
+  } catch (ex) {
+    req.log.error(ex, "failed to check chat permission")
+    res.status(500).send({ error: "Internal Server Error" })
+  }
+})
+
+
+app.get("/sys/matches", async (req, res) => {
+  try {
+    const { userId } = req.query as { userId: string }
+    if(!userId){
+      res.status(400).send({ error: "Missing required parameters" });
+      return;
+    }
+     const matches = await getMatches(userId);
+     matches.map((match:any) => ({
+      match_id: match.id,
+      matched_user_id: match.user1_id === userId ? match.user2_id : match.user1_id
+     }))
+    res.send(matches);
+  } catch (ex) {
+    req.log.error(ex, "failed to get matches")
+  }
+})
+
 
 app.listen({ port: AppConfig.port, host: '0.0.0.0' }, (err, address) => {
   if (err) throw err

@@ -32,11 +32,10 @@ const GRAPHQL_POLICY: GraphQLPolicy = {
         requireWhere: true
     },
     mutation: {
-        allowed: ['update_da_users_by_pk', 'insert_da_swipes_one', 'insert_da_matches_one'],
+        allowed: ['update_da_users_by_pk', 'insert_da_swipes_one'],
         autofill: {
             update_da_users_by_pk: { id: 'userId' },
             insert_da_swipes_one: { user_id: 'userId' },     // always set swipe.user_id from JWT
-            insert_da_matches_one: { user1_id: 'userId' },   // always set user1_id from JWT
         },
     },
     subscription: { allowed: [] },

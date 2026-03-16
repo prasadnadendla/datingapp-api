@@ -40,10 +40,10 @@ export const getUser = async (phoneNumber: string) => {
                 }`,
         variables: { phone: phoneNumber }
     })
-    if(response.error){
+    if (response.error) {
         log.error(response.error);
         return null;
-    } 
+    }
     return (response as any).data.da_users[0] || null;
 }
 
@@ -203,6 +203,83 @@ export const updateDatingProfile = async (userId: string, set: Record<string, an
     });
     return (response as any).data.update_da_users_by_pk || null;
 }
+
+
+export const checkChatPermission = async (userId: string, targetId: string) => {
+    const response = await client.query({
+        query: gql`query checkChatPermission($userId: uuid!, $targetId: uuid!) {
+            da_matches(where: {
+                    _or: [
+                        {user1_id: {_eq: $userId}, user2_id: {_eq: $targetId}}
+                        {user1_id: {_eq: $targetId}, user2_id: {_eq: $userId}}
+                    ]
+
+            }) {
+                id
+            }
+        }`,
+        variables: { userId, targetId }
+    });
+    return (response as any).data.da_matches.length > 0;
+}
+
+
+export const checkReciprocalSwipe = async (userId: string, targetId: string): Promise<boolean> => {
+    const response = await client.query({
+        query: gql`query checkReciprocal($targetId: uuid!, $userId: uuid!) {
+            da_swipes(where: {
+                user_id: {_eq: $targetId},
+                target_id: {_eq: $userId},
+                action: {_in: ["like", "super_like"]}
+            }) {
+                id
+            }
+        }`,
+        variables: { targetId, userId }
+    });
+    return ((response as any).data.da_swipes?.length ?? 0) > 0;
+}
+
+export const createMatch = async (user1Id: string, user2Id: string) => {
+    try {
+        const response = await client.mutate({
+            mutation: gql`mutation createMatch($object: da_matches_insert_input!) {
+                insert_da_matches_one(object: $object) {
+                    id
+                }
+            }`,
+            variables: { object: { user1_id: user1Id, user2_id: user2Id } }
+        });
+        return (response as any).data.insert_da_matches_one || null;
+    } catch (error: any) {
+        if (error.message?.includes('Uniqueness violation')) {
+            return null;
+        }
+        throw error;
+    }
+}
+
+export const getMatches = async (userId: string) => {
+    const response = await client.query({
+        query: gql`query getMatches($userId: uuid!) {
+            da_matches(where: {
+            _or: [
+                        {user1_id: {_eq: $userId}}
+                        {user2_id: {_eq: $userId}}
+                    ]
+            }) {
+                id
+                user1_id
+                user2_id
+            }
+        }`,
+        variables: { userId }
+    });
+    return (response as any).data.da_matches || null;
+
+}
+
+
 
 export const executeQuery = async (query: string, variables: any = {}) => {
     try {
