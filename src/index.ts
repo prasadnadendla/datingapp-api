@@ -343,6 +343,19 @@ async function onMutation(response: any, graph: GraphInput, userId: string) {
                 data: { url: '/matches', matchId: match.id }
               });
             }).catch(() => {});
+            // Push real-time new_match event to both users via CF Worker
+            // matchedUserId is the OTHER party so each DO can hot-add the match to its routing map
+            if (AppConfig.worker.apiKey) {
+              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AppConfig.worker.apiKey}` };
+              fetch(`${AppConfig.worker.url}/sys/deliver`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ targetUserId: userId, type: 'new_match', matchId: match.id, matchedUserId: targetId }),
+              }).catch(() => {});
+              fetch(`${AppConfig.worker.url}/sys/deliver`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ targetUserId: targetId, type: 'new_match', matchId: match.id, matchedUserId: userId }),
+              }).catch(() => {});
+            }
             return { ...response, data: { ...response.data, _match: match } };
           }
         }
@@ -598,6 +611,14 @@ app.post("/api/user/block", async (req, res) => {
       return;
     }
     res.status(204).send();
+    // Notify blocked user via CF Worker (fire-and-forget)
+    if (AppConfig.worker.apiKey) {
+      fetch(`${AppConfig.worker.url}/sys/deliver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AppConfig.worker.apiKey}` },
+        body: JSON.stringify({ targetUserId: payload.targetId, type: 'blocked', blockerUserId: user.uid }),
+      }).catch(() => {});
+    }
   } catch (ex) {
     const error = parseErrorMessage(ex);
     if (error) {
@@ -631,6 +652,14 @@ app.delete("/api/user/block", async (req, res) => {
       return;
     }
     res.status(204).send();
+    // Notify unblocked user via CF Worker (fire-and-forget)
+    if (AppConfig.worker.apiKey) {
+      fetch(`${AppConfig.worker.url}/sys/deliver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AppConfig.worker.apiKey}` },
+        body: JSON.stringify({ targetUserId: payload.targetId, type: 'unblocked', blockerUserId: user.uid }),
+      }).catch(() => {});
+    }
   } catch (ex) {
     req.log.error(ex, "failed to unblock user")
     res.status(500).send({ error: "Internal Server Error" })
