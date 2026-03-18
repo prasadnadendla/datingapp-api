@@ -9,10 +9,10 @@ const app = fastify({
 })
 
 setLogger(app.log)
-import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput} from './models/middleware'
+import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput, BlockUserSchema, BlockUserInput, ReportUserSchema, ReportUserInput } from './models/middleware'
 import { getTotpInstance, validate } from "./validator";
 import { sendOTP } from "./otp/twofactor";
-import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile, checkChatPermission, getMatches, checkReciprocalSwipe, createMatch } from './db/queries'
+import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile, checkChatPermission, getMatches, checkReciprocalSwipe, createMatch, blockUser, unblockUser, reportUser } from './db/queries'
 import fastifyMetrics from 'fastify-metrics'
 import fastifyJwt from "@fastify/jwt";
 import rateLimit from '@fastify/rate-limit'
@@ -567,6 +567,104 @@ app.put("/api/profile", async (req, res) => {
     res.send({ user: toUserResponse(updated) });
   } catch (ex) {
     req.log.error(ex, "failed to update profile")
+    res.status(500).send({ error: "Internal Server Error" })
+  }
+})
+
+
+/**
+ * Block a user
+ */
+app.post("/api/user/block", async (req, res) => {
+  try {
+    const user = req.user as object & { uid: string }
+    if (!user) {
+      res.status(401).send({ error: "Unauthorized" })
+      return;
+    }
+    const { data, error } = validate(BlockUserSchema, req.body);
+    if (error) {
+      res.status(400).send(error);
+      return;
+    }
+    const payload: BlockUserInput = data;
+    if (payload.targetId === user.uid) {
+      res.status(400).send({ error: "Cannot block yourself" });
+      return;
+    }
+    const result = await blockUser(user.uid, payload.targetId);
+    if (!result) {
+      res.status(500).send({ error: "Failed to block user" });
+      return;
+    }
+    res.status(204).send();
+  } catch (ex) {
+    const error = parseErrorMessage(ex);
+    if (error) {
+      res.status(409).send({ error: "User is already blocked" });
+      return;
+    }
+    req.log.error(ex, "failed to block user")
+    res.status(500).send({ error: "Internal Server Error" })
+  }
+})
+
+/**
+ * Unblock a user
+ */
+app.delete("/api/user/block", async (req, res) => {
+  try {
+    const user = req.user as object & { uid: string }
+    if (!user) {
+      res.status(401).send({ error: "Unauthorized" })
+      return;
+    }
+    const { data, error } = validate(BlockUserSchema, req.body);
+    if (error) {
+      res.status(400).send(error);
+      return;
+    }
+    const payload: BlockUserInput = data;
+    const affected = await unblockUser(user.uid, payload.targetId);
+    if (affected === 0) {
+      res.status(404).send({ error: "Block not found" });
+      return;
+    }
+    res.status(204).send();
+  } catch (ex) {
+    req.log.error(ex, "failed to unblock user")
+    res.status(500).send({ error: "Internal Server Error" })
+  }
+})
+
+/**
+ * Report a user
+ */
+app.post("/api/user/report", async (req, res) => {
+  try {
+    const user = req.user as object & { uid: string }
+    if (!user) {
+      res.status(401).send({ error: "Unauthorized" })
+      return;
+    }
+    const { data, error } = validate(ReportUserSchema, req.body);
+    if (error) {
+      res.status(400).send(error);
+      return;
+    }
+    const payload: ReportUserInput = data;
+    if (payload.targetId === user.uid) {
+      res.status(400).send({ error: "Cannot report yourself" });
+      return;
+    }
+    const result = await reportUser(user.uid, payload.targetId, payload.reason, payload.comment, payload.evidenceUrl);
+    if (!result) {
+      res.status(500).send({ error: "Failed to submit report" });
+      return;
+    }
+    res.status(204).send();
+  } catch (ex) {
+    req.log.error(ex, "failed to report user")
     res.status(500).send({ error: "Internal Server Error" })
   }
 })

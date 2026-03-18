@@ -119,6 +119,36 @@ CREATE INDEX idx_matches_user1 ON da.matches(user1_id);
 CREATE INDEX idx_matches_user2 ON da.matches(user2_id);
 
 -- ===========================================================
+-- BLOCKS TABLE — tracks user blocks
+-- ===========================================================
+CREATE TABLE "da"."blocks" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blocker_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT,
+    UNIQUE(blocker_id, blocked_id)
+);
+
+CREATE INDEX idx_blocks_blocker ON da.blocks(blocker_id);
+CREATE INDEX idx_blocks_blocked ON da.blocks(blocked_id);
+
+-- ===========================================================
+-- REPORTS TABLE — tracks user reports
+-- ===========================================================
+CREATE TABLE "da"."reports" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    reported_id UUID NOT NULL REFERENCES da.users(id) ON DELETE CASCADE,
+    reason VARCHAR(50) NOT NULL,  -- 'spam', 'harassment', 'fake_profile', 'inappropriate_content', 'other'
+    comment VARCHAR(500),
+    evidence_url VARCHAR(500),  -- URL to file containing last conversation data
+    created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT
+);
+
+CREATE INDEX idx_reports_reporter ON da.reports(reporter_id);
+CREATE INDEX idx_reports_reported ON da.reports(reported_id);
+
+-- ===========================================================
 
 -- ===========================================================
 -- OPTIONAL: ALERTS TABLE

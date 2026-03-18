@@ -299,6 +299,45 @@ export const getUserPushSubscriptions = async (userId: string) => {
     return (response as any).data.da_pushsubs?.[0] ?? null;
 }
 
+export const blockUser = async (blockerId: string, blockedId: string) => {
+    const response = await client.mutate({
+        mutation: gql`mutation blockUser($object: da_blocks_insert_input!) {
+            insert_da_blocks_one(object: $object) {
+                id
+            }
+        }`,
+        variables: { object: { blocker_id: blockerId, blocked_id: blockedId } }
+    });
+    return (response as any).data.insert_da_blocks_one || null;
+}
+
+export const unblockUser = async (blockerId: string, blockedId: string) => {
+    const response = await client.mutate({
+        mutation: gql`mutation unblockUser($blockerId: uuid!, $blockedId: uuid!) {
+            delete_da_blocks(where: {
+                blocker_id: { _eq: $blockerId },
+                blocked_id: { _eq: $blockedId }
+            }) {
+                affected_rows
+            }
+        }`,
+        variables: { blockerId, blockedId }
+    });
+    return (response as any).data.delete_da_blocks?.affected_rows ?? 0;
+}
+
+export const reportUser = async (reporterId: string, reportedId: string, reason: string, comment?: string, evidenceUrl?: string) => {
+    const response = await client.mutate({
+        mutation: gql`mutation reportUser($object: da_reports_insert_input!) {
+            insert_da_reports_one(object: $object) {
+                id
+            }
+        }`,
+        variables: { object: { reporter_id: reporterId, reported_id: reportedId, reason, comment: comment ?? null, evidence_url: evidenceUrl ?? null } }
+    });
+    return (response as any).data.insert_da_reports_one || null;
+}
+
 export const executeQuery = async (query: string, variables: any = {}) => {
     try {
         const response = await client.query({

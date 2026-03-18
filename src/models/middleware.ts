@@ -73,6 +73,19 @@ export const UpdateProfileSchema = z.object({
 });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
+export const BlockUserSchema = z.object({
+  targetId: z.uuid({ message: "Invalid user ID" }),
+});
+export type BlockUserInput = z.infer<typeof BlockUserSchema>;
+
+export const ReportUserSchema = z.object({
+  targetId: z.uuid({ message: "Invalid user ID" }),
+  reason: z.enum(['spam', 'harassment', 'fake_profile', 'inappropriate_content', 'other']),
+  comment: z.string().max(500).optional(),
+  evidenceUrl: z.url({ message: "Invalid evidence URL" }).optional(),
+});
+export type ReportUserInput = z.infer<typeof ReportUserSchema>;
+
 export const Graph = z.object({
     operationName: z.string().max(255).describe("operation name").optional(),
     query: z.string().trim().max(5000).describe("Graph query"),  
