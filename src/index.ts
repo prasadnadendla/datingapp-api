@@ -19,7 +19,7 @@ import rateLimit from '@fastify/rate-limit'
 import { parseErrorMessage } from "./utils"
 import { sendPushNotification } from "./notifications"
 import { Subscribe, SubscribeInput } from "./models/subscribe";
-import { deleteImageById, uploadImage } from "./db/s3";
+import { deleteImageById, uploadImage, uploadEvidenceFile } from "./db/s3";
 import multipart from "@fastify/multipart";
 import { parse } from "graphql";
 import { authorizeGraphQL } from "./graphqlauthz";
@@ -663,6 +663,33 @@ app.delete("/api/user/block", async (req, res) => {
   } catch (ex) {
     req.log.error(ex, "failed to unblock user")
     res.status(500).send({ error: "Internal Server Error" })
+  }
+})
+
+/**
+ * Upload report evidence (chat transcript as HTML) — returns a public URL
+ */
+app.post("/api/user/report/evidence", async (req, res) => {
+  try {
+    const user = req.user as object & { uid: string }
+    if (!user) {
+      res.status(401).send({ error: "Unauthorized" })
+      return;
+    }
+    const body = req.body as { content?: string };
+    if (!body?.content || typeof body.content !== 'string' || body.content.length > 2_000_000) {
+      res.status(400).send({ error: "Missing or oversized content" });
+      return;
+    }
+    const result = await uploadEvidenceFile(body.content, 'text/html');
+    if ('error' in result) {
+      res.status(500).send({ error: "Failed to upload evidence" });
+      return;
+    }
+    res.status(201).send({ url: result.url });
+  } catch (ex) {
+    req.log.error(ex, "failed to upload evidence");
+    res.status(500).send({ error: "Internal Server Error" });
   }
 })
 

@@ -55,6 +55,23 @@ export async function uploadImage(buffer: Buffer<ArrayBufferLike>,ref?:string): 
     }
 }
 
+export async function uploadEvidenceFile(content: string, contentType: 'text/html' | 'application/json', folder = 'evidence'): Promise<{url: string} | {error: string}> {
+    try {
+        const ext = contentType === 'text/html' ? 'html' : 'json';
+        const name = `${crypto.randomBytes(16).toString('hex')}.${ext}`;
+        const file = bucket.file(`${folder}/${name}`);
+        await file.save(Buffer.from(content, 'utf-8'), {
+            metadata: { contentType, cacheControl: 'private, no-store' },
+            public: true,
+            resumable: false,
+        });
+        return { url: `https://storage.googleapis.com/${bucketName}/${folder}/${name}` };
+    } catch (err) {
+        log.error(err);
+        return { error: 'Upload failed' };
+    }
+}
+
 export async function deleteImageById(imageId: string, ref?:string): Promise<boolean> {
     try {
         const deletePromises = SIZES.map(({ suffix }) => {
