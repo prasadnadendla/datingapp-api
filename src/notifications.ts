@@ -22,6 +22,7 @@ export interface PushPayload {
     title: string;
     body: string;
     icon?: string;
+    image?: string;
     data?: Record<string, any>;
 }
 
@@ -90,6 +91,7 @@ async function sendFcmNotification(token: string, payload: PushPayload) {
                 android: {
                     notification: {
                         icon: 'ic_notification',
+                        ...(payload.image ? { image: payload.image } : {}),
                     }
                 }
             }

@@ -264,8 +264,8 @@ app.post("/api/subscribe", async (req, res) => {
     }
     const subscription: SubscribeInput = data;
     try {
-      const response = await executeMutation(`mutation createSubscription($object:sb_pushsubs_insert_input!){
-      insert_sb_pushsubs_one(object:$object,on_conflict: {constraint: pushsubs_uid_key, update_columns: []}){
+      const response = await executeMutation(`mutation createSubscription($object:da_pushsubs_insert_input!){
+      insert_da_pushsubs_one(object:$object,on_conflict: {constraint: pushsubs_uid_key, update_columns: []}){
         id
       }
     }`, { object: subscription.token ? { uid: user.uid, android_pushsubs: { data: [subscription] } } : { uid: user.uid, web_pushsubs: { data: [subscription] } } });
@@ -277,17 +277,17 @@ app.post("/api/subscribe", async (req, res) => {
       if (err.message.includes('cannot proceed to insert array relations since insert to ')) {
         const key = subscription.token ? 'android_pushsubs' : 'web_pushsubs'
         const getSubscriptionId = await executeQuery(`query getpushSubId($uid:uuid!) {
-          sb_pushsubs(where:{uid:{_eq:$uid}}){
+          da_pushsubs(where:{uid:{_eq:$uid}}){
             id
           }
           }`, { uid: user.uid })
-        if (getSubscriptionId.error || getSubscriptionId.errors || getSubscriptionId.data.sb_pushsubs.length == 0) { // this should never happen unless if there's an issue gql server for a while
+        if (getSubscriptionId.error || getSubscriptionId.errors || getSubscriptionId.data.da_pushsubs.length == 0) { // this should never happen unless if there's an issue gql server for a while
           res.status(400).send({ error: "Invalid Request" })
           return;
         }
-        const pushsub_id = getSubscriptionId.data.sb_pushsubs[0].id
-        const response = await executeMutation(`mutation createPushSubscription($object:sb_${key}_insert_input!){
-      insert_sb_${key}_one(object:$object){
+        const pushsub_id = getSubscriptionId.data.da_pushsubs[0].id
+        const response = await executeMutation(`mutation createPushSubscription($object:da_${key}_insert_input!){
+      insert_da_${key}_one(object:$object){
         id
       }
     }`, { object: { ...subscription, pushsub_id } });
@@ -726,7 +726,7 @@ app.post("/api/user/report", async (req, res) => {
 })
 
 
-app.get("/sys/chat/permitted", async (req, res) => {
+app.get("/system/chat/permitted", async (req, res) => {
   try {
     const { userId, targetId } = req.query as { userId: string, targetId: string }
     if (!userId || !targetId) {
@@ -742,7 +742,7 @@ app.get("/sys/chat/permitted", async (req, res) => {
 })
 
 
-app.get("/sys/matches", async (req, res) => {
+app.get("/system/matches", async (req, res) => {
   try {
     const { userId } = req.query as { userId: string }
     if(!userId){
@@ -758,6 +758,69 @@ app.get("/sys/matches", async (req, res) => {
     req.log.error(ex, "failed to get matches")
   }
 })
+
+app.post("/system/notify", async (req, res) => {
+    const { userId, payload } = req.body as {
+        userId: string;
+        payload: {
+            messageId: string;
+            matchId: string;
+            senderId: string;
+            type: string;
+            timestamp: number;
+            content?: string;
+            url?: string;
+            blurHash?: string;
+            silent?: boolean;
+        };
+    };
+
+    if (!userId || !payload) {
+        return res.status(400).send({ error: 'Missing userId or payload' });
+    }
+
+    let title: string;
+    let body: string;
+
+    if (payload.silent) {
+        // Voice message — data-only, no visible notification
+        await sendPushNotification(userId, {
+            title: '',
+            body: '',
+            data: payload,
+        });
+        return res.status(204).send();
+    }
+
+    switch (payload.type) {
+        case 'photo':
+            title = 'New Photo';
+            body = 'Sent you a photo';
+            break;
+        case 'gif':
+            title = 'New GIF';
+            body = 'Sent you a GIF';
+            break;
+
+        case 'emoji':
+            title = 'New Message';
+            body = payload.content ?? '😊';
+            break;
+        case 'text':
+        default:
+            title = 'New Message';
+            body = payload.content ?? 'You have a new message';
+            break;
+    }
+
+    const image = (payload.type === 'photo' || payload.type === 'gif') && payload.url
+        ? `${payload.url}_200.webp`
+        : undefined;
+
+    await sendPushNotification(userId, { title, body, image, data: payload });
+    return res.status(204).send();
+})
+
 
 
 app.listen({ port: AppConfig.port, host: '0.0.0.0' }, (err, address) => {
