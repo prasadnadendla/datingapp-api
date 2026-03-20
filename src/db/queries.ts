@@ -299,6 +299,28 @@ export const getUserPushSubscriptions = async (userId: string) => {
     return (response as any).data.da_pushsubs?.[0] ?? null;
 }
 
+export const removeWebPushSubscription = async (endpoint: string) => {
+    await client.mutate({
+        mutation: gql`mutation removeWebSub($endpoint: String!) {
+            delete_da_web_pushsubs(where: { endpoint: { _eq: $endpoint } }) {
+                affected_rows
+            }
+        }`,
+        variables: { endpoint }
+    });
+}
+
+export const removeFcmToken = async (token: string) => {
+    await client.mutate({
+        mutation: gql`mutation removeFcmToken($token: String!) {
+            delete_da_android_pushsubs(where: { token: { _eq: $token } }) {
+                affected_rows
+            }
+        }`,
+        variables: { token }
+    });
+}
+
 export const blockUser = async (blockerId: string, blockedId: string) => {
     const response = await client.mutate({
         mutation: gql`mutation blockUser($object: da_blocks_insert_input!) {

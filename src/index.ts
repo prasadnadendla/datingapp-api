@@ -46,8 +46,8 @@ app.register(rateLimit, {
   timeWindow: '1 minute'
 });
 app.register(fastifyJwt, {  secret: {
-    private: fs.readFileSync('./dist/conf/private.key'),
-    public: fs.readFileSync('./dist/conf/public.key')
+    private: fs.readFileSync('./conf/private.key'),
+    public: fs.readFileSync('./conf/public.key')
   }, sign: { algorithm: 'ES256',iss: 'auth.genzyy.in', aud: 'genzyy-app' }, verify: { algorithms: ['ES256'] } })
 
 app.addHook("onRequest", async (request, reply) => {
@@ -62,9 +62,12 @@ app.addHook("onRequest", async (request, reply) => {
         reply.status(401).send({ error: "Unauthorized" });
         return;
       }
-      if (request.url.includes("/system/") && token !== AppConfig.system_code) {
-        reply.status(401).send({ error: "Unauthorized" });
-        return;
+      if (request.url.includes("/system/")) {
+         if(token !== AppConfig.system_code) {
+            reply.status(401).send({ error: "Unauthorized" });
+            return;
+         }
+         return;
       }
       //TODO: verify token revocation
       await request.jwtVerify()
