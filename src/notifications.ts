@@ -54,6 +54,11 @@ export async function sendPushNotification(userId: string, payload: PushPayload)
 
         // FCM for Android subscriptions
         const androidSubs = subs.android_pushsubs ?? [];
+        if (!androidSubs.length) {
+            log.warn(`No FCM tokens found for user ${userId}`);
+            return;
+        }
+
         for (const sub of androidSubs) {
             try {
                 await sendFcmNotification(sub.token, payload);
