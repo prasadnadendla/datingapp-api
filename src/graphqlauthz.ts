@@ -2,7 +2,8 @@
 import { parse, FieldNode } from 'graphql';
 
 // Define allowed operations and fields
-type AutofillRules = Record<string, Record<string, string>>;
+type AutofillSource = 'userId' | 'oppositeGender';
+type AutofillRules = Record<string, Record<string, AutofillSource>>;
 
 interface PolicyEntry {
     allowed: string[];
@@ -23,7 +24,8 @@ const GRAPHQL_POLICY: GraphQLPolicy = {
         allowed: ['da_users', 'da_users_by_pk', 'da_swipes', 'da_matches'],
         autofill: {
             da_communities: { uid: 'userId' },
-            da_matches: { user1_id: 'userId', user2_id: 'userId' }
+            da_matches: { user1_id: 'userId', user2_id: 'userId' },
+            da_users: { gender: 'oppositeGender' },
         },
         restrictedFields: {
             da_users: ['secret', 'password', 'email', 'phone'],
@@ -44,9 +46,7 @@ const GRAPHQL_POLICY: GraphQLPolicy = {
 
 
 export const authorizeGraphQL = (req: any, res: any, done: any) => {
-    // Placeholder for future authorization logic
-    // check from support system or main app
-    const user = req.user as object & { uid: string }
+    const user = req.user as object & { uid: string; gender?: string }
     if (!user) {
         res.status(401).send({ error: "Unauthorized" })
         return;
@@ -156,6 +156,15 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
                             // Top-level variable (e.g., update_by_pk with $id)
                             variables[fieldToFill] = userId;
                         }
+                    } else if (source === 'oppositeGender' && userId && variables.where) {
+                        const gender = user?.gender ?? null;
+                        const opposite = gender === 'male' ? 'female' : gender === 'female' ? 'male' : null;
+                        if (opposite) {
+                            const found = deepFillField(variables.where, fieldToFill, opposite);
+                            if (!found) {
+                                variables.where[fieldToFill] = { _eq: opposite };
+                            }
+                        }
                     }
                 }
             }
@@ -174,8 +183,7 @@ export const authorizeGraphQL = (req: any, res: any, done: any) => {
             }
         }
     }
-
-    // replace modified variables
+    // final modified variables
     body.variables = variables;
     done();
 }

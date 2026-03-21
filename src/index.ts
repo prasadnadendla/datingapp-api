@@ -207,8 +207,8 @@ app.post("/verify", { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } 
     //For testing
     if (AppConfig.test.active && data.phone === AppConfig.test.phone && data.code === AppConfig.test.otp) {
       const user = await getUser(data.phone);
-      const token = app.jwt.sign({ phone: data.phone, uid: user!.id })
       const profile = await getUserProfile(user!.id);
+      const token = app.jwt.sign({ phone: data.phone, uid: user!.id, gender: profile?.gender ?? null })
       res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
       res.header("Pragma", "no-cache")
       res.header("Expires", "0")
@@ -242,8 +242,8 @@ app.post("/verify", { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } 
     }
 
 
-    const token = await app.jwt.sign({ phone: data.phone, uid: user!.id })
     const profile = await getUserProfile(user!.id);
+    const token = app.jwt.sign({ phone: data.phone, uid: user!.id, gender: profile?.gender ?? null })
 
     res.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
     res.header("Pragma", "no-cache")
@@ -531,7 +531,8 @@ app.post("/api/onboard", async (req, res) => {
       res.status(500).send({ error: "Failed to onboard user" });
       return;
     }
-    res.send({ user: toUserResponse(updated) });
+    const newToken = app.jwt.sign({ phone: (req.user as any).phone, uid: user.uid, gender: updated.gender ?? null });
+    res.send({ token: newToken, user: toUserResponse(updated) });
   } catch (ex) {
     req.log.error(ex, "failed to onboard user")
     res.status(500).send({ error: "Internal Server Error" })
