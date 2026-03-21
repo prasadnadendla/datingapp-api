@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "local": "npm run copy-assets && nodemon src/index.ts",
-    "copy-assets": "copyfiles -u 1 src/conf/*.key dist/",
+    "copy-assets": "copyfiles -u 1 src/conf/* dist/",
     "dist": "npm run clean && npm run build && npm run copy-assets",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -33,6 +33,7 @@
     "@google-cloud/storage": "^7.19.0",
     "fastify": "^5.7.4",
     "fastify-metrics": "^12.1.0",
+    "firebase-admin": "^13.7.0",
     "otpauth": "^9.5.0",
     "sharp": "^0.34.5",
     "web-push": "^3.6.7",

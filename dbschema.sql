@@ -24,14 +24,23 @@ CREATE TABLE "da"."users" (
     community VARCHAR(100),
     education VARCHAR(100),
     profession VARCHAR(100),
+    height SMALLINT,                           -- height in cm
+    salary VARCHAR(50),                        -- income range label e.g. '₹5–10L'
+    net_worth VARCHAR(50),                     -- net-worth range label
+    assets JSONB DEFAULT '[]'::jsonb,          -- e.g. ['Own House', 'Own Car']
+    zodiac VARCHAR(50),                        -- sun sign e.g. 'Aries ♈'
+    birth_star VARCHAR(50),                    -- nakshatra e.g. 'Rohini'
     voice_intro_url VARCHAR(500),
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     verified_type VARCHAR(20),     -- 'selfie', 'aadhaar'
     is_premium BOOLEAN NOT NULL DEFAULT FALSE,
     spark_pass_expiry BIGINT,
     is_onboarded BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at BIGINT,
+    scheduled_delete_at BIGINT,
     created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT,
-    modified_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT
+    modified_at BIGINT NOT NULL DEFAULT extract(epoch from now())::BIGINT,
+    
 );
 
 -- Migration: add dating profile columns to existing da.users table
@@ -51,6 +60,14 @@ CREATE TABLE "da"."users" (
 -- ALTER TABLE da.users ADD COLUMN is_premium BOOLEAN NOT NULL DEFAULT FALSE;
 -- ALTER TABLE da.users ADD COLUMN spark_pass_expiry BIGINT;
 -- ALTER TABLE da.users ADD COLUMN is_onboarded BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Migration: new profile detail columns (run on existing deployments)
+-- ALTER TABLE da.users ADD COLUMN height SMALLINT;
+-- ALTER TABLE da.users ADD COLUMN salary VARCHAR(50);
+-- ALTER TABLE da.users ADD COLUMN net_worth VARCHAR(50);
+-- ALTER TABLE da.users ADD COLUMN assets JSONB DEFAULT '[]'::jsonb;
+-- ALTER TABLE da.users ADD COLUMN zodiac VARCHAR(50);
+-- ALTER TABLE da.users ADD COLUMN birth_star VARCHAR(50);
 
 CREATE TABLE "da"."tokens" (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -82,6 +82,24 @@ export const createUser = async (phoneNumber: string, secret: string, location: 
 }
 
 
+export const markAccountForDeletion = async (userId: string) => {
+    const scheduledAt = new Date();
+    scheduledAt.setDate(scheduledAt.getDate() + 30);
+    const response = await client.mutate({
+        mutation: gql`mutation markAccountForDeletion($id: uuid!, $deletedAt: timestamptz!, $scheduledAt: timestamptz!) {
+                update_da_users_by_pk(pk_columns: {id: $id}, _set: {
+                    is_deleted: true,
+                    deleted_at: $deletedAt,
+                    scheduled_delete_at: $scheduledAt
+                }) {
+                    id
+                }
+            }`,
+        variables: { id: userId, deletedAt: new Date().toISOString(), scheduledAt: scheduledAt.toISOString() }
+    })
+    return (response as any).data.update_da_users_by_pk || null;
+}
+
 export const activateUser = async (userId: string) => {
     const response = await client.mutate({
         mutation: gql`mutation activateUser($id: uuid!) {
@@ -150,9 +168,10 @@ export const saveToken = async (userId: string, token: string, location: any) =>
 }
 
 export const onboardUser = async (userId: string, name: string, intent: string, details: {
-    age: number; gender: string; city: string; photos: string[]; tags: string[]; motherTongue?: string;
+    age: number; gender: string; city: string; photos: string[]; tags: string[];
+    motherTongue?: string; height?: number; education?: string; profession?: string; zodiac?: string;
 }) => {
-    const set = {
+    const set: Record<string, any> = {
         name,
         intent,
         age: details.age,
@@ -163,12 +182,17 @@ export const onboardUser = async (userId: string, name: string, intent: string, 
         mother_tongue: details.motherTongue || null,
         is_onboarded: true,
     };
+    if (details.height) set.height = details.height;
+    if (details.education) set.education = details.education;
+    if (details.profession) set.profession = details.profession;
+    if (details.zodiac) set.zodiac = details.zodiac;
     const response = await client.mutate({
         mutation: gql`mutation onboardUser($id: uuid!, $set: da_users_set_input!) {
             update_da_users_by_pk(pk_columns: {id: $id}, _set: $set) {
                 id name age gender city photos tags mother_tongue intent
+                height education profession religion community
+                salary net_worth assets zodiac birth_star
                 is_onboarded is_verified is_premium voice_intro_url
-                education profession religion community
             }
         }`,
         variables: { id: userId, set }
@@ -181,8 +205,10 @@ export const getUserProfile = async (userId: string) => {
         query: gql`query getUserProfile($id: uuid!) {
             da_users_by_pk(id: $id) {
                 id name phone age gender city photos tags mother_tongue intent
+                height education profession religion community
+                salary net_worth assets zodiac birth_star
                 is_onboarded is_verified verified_type is_premium spark_pass_expiry
-                voice_intro_url education profession religion community
+                voice_intro_url
             }
         }`,
         variables: { id: userId }
@@ -195,8 +221,9 @@ export const updateDatingProfile = async (userId: string, set: Record<string, an
         mutation: gql`mutation updateDatingProfile($id: uuid!, $set: da_users_set_input!) {
             update_da_users_by_pk(pk_columns: {id: $id}, _set: $set) {
                 id name age gender city photos tags mother_tongue intent
+                height education profession religion community
+                salary net_worth assets zodiac birth_star
                 is_onboarded is_verified is_premium voice_intro_url
-                education profession religion community
             }
         }`,
         variables: { id: userId, set }

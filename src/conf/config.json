@@ -1,6 +1,6 @@
 {
     "port": 3005,
-    "system_code": "4}4A~KEaQZi,XAHc%)Ajci%f;{fTw@c!",
+    "system_code": "7jmKOGZZEf4Ma1xm7B2sBAPACL53smgPd90a",
     "secretKey": "U7e99iZOyWFVIUlfmFVyY0wFIKYksdEeLXFIcEu5j3gIHGP79O",
     "graphql": {
         "endpoint": "https://gql.truelet.in/v1/graphql",
@@ -12,7 +12,9 @@
     "cors": {
         "origin": [
             "http://localhost:4400",
-            "https://genzyy.in"
+            "https://genzyy.in",
+            "https://localhost",
+            "capacitor://localhost"
         ],
         "methods": [
             "GET,PUT,PATCH,POST,DELETE"
@@ -30,10 +32,14 @@
         "subject": "mailto:prasad@trackland.in"
     },
     "jwt": "yFU7lLPpS75R5oaNPiz+yTq/SCG29ZR08+mVUiPwCog=",
-        "s3":{
+        "worker": {
+        "url": "https://chat.genzyy.in",
+        "apiKey": "jhfHsocy6hhL4THAvQCAxUqIEwAMugU27RXa"
+    },
+    "s3":{
         "bucket":"genzyy-profiles",
         "projectId":"clear-safeguard-466414-c7",
-        "keyFilename":"src/conf/storage-service-account.json",
+        "keyFilename":"conf/google-service-account.json",
         "baseUrl":"https://images.genzyy.in/"
     }
 }

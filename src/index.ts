@@ -9,10 +9,10 @@ const app = fastify({
 })
 
 setLogger(app.log)
-import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput, BlockUserSchema, BlockUserInput, ReportUserSchema, ReportUserInput } from './models/middleware'
+import { Graph, GraphInput, SignIn, SignInInput, SignInVerify, SignInVerifyInput, uploadImageSchema, deleteImageSchema, OnboardSchema, OnboardInput, UpdateProfileSchema, UpdateProfileInput, BlockUserSchema, BlockUserInput, ReportUserSchema, ReportUserInput, DeleteOtpSchema, DeleteConfirmSchema } from './models/middleware'
 import { getTotpInstance, validate } from "./validator";
 import { sendOTP } from "./otp/twofactor";
-import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile, checkChatPermission, getMatches, checkReciprocalSwipe, createMatch, blockUser, unblockUser, reportUser } from './db/queries'
+import { getUser, createUser, getGeoLocation, activateUser, saveToken, executeMutation, executeQuery, onboardUser, getUserProfile, updateDatingProfile, checkChatPermission, getMatches, checkReciprocalSwipe, createMatch, blockUser, unblockUser, reportUser, markAccountForDeletion } from './db/queries'
 import fastifyMetrics from 'fastify-metrics'
 import fastifyJwt from "@fastify/jwt";
 import rateLimit from '@fastify/rate-limit'
@@ -46,8 +46,8 @@ app.register(rateLimit, {
   timeWindow: '1 minute'
 });
 app.register(fastifyJwt, {  secret: {
-    private: fs.readFileSync('./conf/private.key'),
-    public: fs.readFileSync('./conf/public.key')
+    private: fs.readFileSync('./dist/conf/private.key'),
+    public: fs.readFileSync('./dist/conf/public.key')
   }, sign: { algorithm: 'ES256',iss: 'auth.genzyy.in', aud: 'genzyy-app' }, verify: { algorithms: ['ES256'] } })
 
 app.addHook("onRequest", async (request, reply) => {
@@ -130,6 +130,12 @@ function toUserResponse(u: any) {
     community: u.community,
     education: u.education,
     profession: u.profession,
+    height: u.height ?? null,
+    salary: u.salary ?? null,
+    netWorth: u.net_worth ?? null,
+    assets: u.assets ?? [],
+    zodiac: u.zodiac ?? null,
+    birthStar: u.birth_star ?? null,
     voiceIntroUrl: u.voice_intro_url,
     isVerified: u.is_verified ?? false,
     verifiedType: u.verified_type,
@@ -509,7 +515,18 @@ app.post("/api/onboard", async (req, res) => {
       return;
     }
     const payload: OnboardInput = data;
-    const updated = await onboardUser(user.uid, payload.name, payload.purpose[0], payload.details);
+    const updated = await onboardUser(user.uid, payload.name, payload.purpose[0], {
+      age: payload.details.age,
+      gender: payload.details.gender,
+      city: payload.details.city,
+      photos: payload.details.photos,
+      tags: payload.details.tags,
+      motherTongue: payload.details.motherTongue,
+      height: payload.details.height,
+      education: payload.details.education,
+      profession: payload.details.profession,
+      zodiac: payload.details.zodiac,
+    });
     if (!updated) {
       res.status(500).send({ error: "Failed to onboard user" });
       return;
@@ -568,8 +585,16 @@ app.put("/api/profile", async (req, res) => {
     if (payload.photos !== undefined) set.photos = payload.photos;
     if (payload.tags !== undefined) set.tags = payload.tags;
     if (payload.motherTongue !== undefined) set.mother_tongue = payload.motherTongue;
+    if (payload.religion !== undefined) set.religion = payload.religion;
+    if (payload.community !== undefined) set.community = payload.community;
     if (payload.education !== undefined) set.education = payload.education;
     if (payload.profession !== undefined) set.profession = payload.profession;
+    if (payload.height !== undefined) set.height = payload.height;
+    if (payload.salary !== undefined) set.salary = payload.salary;
+    if (payload.netWorth !== undefined) set.net_worth = payload.netWorth;
+    if (payload.assets !== undefined) set.assets = payload.assets;
+    if (payload.zodiac !== undefined) set.zodiac = payload.zodiac;
+    if (payload.birthStar !== undefined) set.birth_star = payload.birthStar;
 
     if (Object.keys(set).length === 0) {
       res.status(400).send({ error: "No fields to update" });
@@ -825,6 +850,55 @@ app.post("/system/notify", async (req, res) => {
 })
 
 
+
+/**
+ * Request OTP to begin account deletion flow.
+ * No JWT required — uses phone + OTP to authenticate the deletion intent.
+ */
+app.post('/account/delete-otp', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (req, res) => {
+  try {
+    const { data, error } = validate(DeleteOtpSchema, req.body);
+    if (error) return res.status(400).send(error);
+
+    const user = await getUser(data.phone);
+    if (!user || user.is_deleted) {
+      // Return 204 even if not found to avoid phone enumeration
+      return res.status(204).send();
+    }
+    const code = getTotpInstance(data.phone, user.secret).generate();
+    sendOTP(data.phone, code);
+    return res.status(204).send();
+  } catch (ex) {
+    req.log.error(ex, 'failed to send delete otp');
+    return res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
+
+/**
+ * Confirm account deletion with OTP.
+ * Marks the account as deleted immediately; hard-delete is scheduled 30 days out.
+ */
+app.post('/account/delete-confirm', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (req, res) => {
+  try {
+    const { data, error } = validate(DeleteConfirmSchema, req.body);
+    if (error) return res.status(400).send(error);
+
+    const user = await getUser(data.phone);
+    if (!user || user.is_deleted) {
+      return res.status(404).send({ error: 'Account not found' });
+    }
+    const valid = getTotpInstance(data.phone, user.secret).validate({ token: data.code, window: 1 });
+    if (valid == null) {
+      return res.status(401).send({ error: 'Invalid or expired code' });
+    }
+    await markAccountForDeletion(user.id);
+    req.log.info({ userId: user.id }, 'account marked for deletion');
+    return res.status(204).send();
+  } catch (ex) {
+    req.log.error(ex, 'failed to confirm account deletion');
+    return res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
 
 app.listen({ port: AppConfig.port, host: '0.0.0.0' }, (err, address) => {
   if (err) throw err

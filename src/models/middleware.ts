@@ -56,6 +56,10 @@ export const OnboardSchema = z.object({
     photos: z.array(z.string().url()).min(1).max(6),
     tags: z.array(z.string()).max(5).default([]),
     motherTongue: z.string().max(50).optional().default(''),
+    height: z.number().int().min(100).max(250).optional(),
+    education: z.string().max(100).optional(),
+    profession: z.string().max(100).optional(),
+    zodiac: z.string().max(50).optional(),
   }),
 });
 export type OnboardInput = z.infer<typeof OnboardSchema>;
@@ -68,8 +72,16 @@ export const UpdateProfileSchema = z.object({
   photos: z.array(z.string().url()).max(6).optional(),
   tags: z.array(z.string()).max(5).optional(),
   motherTongue: z.string().max(50).optional(),
+  religion: z.string().max(50).optional(),
+  community: z.string().max(100).optional(),
   education: z.string().max(100).optional(),
   profession: z.string().max(100).optional(),
+  height: z.number().int().min(100).max(250).nullable().optional(),
+  salary: z.string().max(50).nullable().optional(),
+  netWorth: z.string().max(50).nullable().optional(),
+  assets: z.array(z.string().max(50)).max(10).optional(),
+  zodiac: z.string().max(50).nullable().optional(),
+  birthStar: z.string().max(50).nullable().optional(),
 });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
@@ -85,6 +97,17 @@ export const ReportUserSchema = z.object({
   evidenceUrl: z.url({ message: "Invalid evidence URL" }).optional(),
 });
 export type ReportUserInput = z.infer<typeof ReportUserSchema>;
+
+export const DeleteOtpSchema = z.object({
+  phone: z.string().regex(phoneRegex, { message: "Invalid phone number format" }),
+});
+export type DeleteOtpInput = z.infer<typeof DeleteOtpSchema>;
+
+export const DeleteConfirmSchema = z.object({
+  phone: z.string().regex(phoneRegex, { message: "Invalid phone number format" }),
+  code: z.string().trim().length(6, { message: "Code must be 6 characters long" }),
+});
+export type DeleteConfirmInput = z.infer<typeof DeleteConfirmSchema>;
 
 export const Graph = z.object({
     operationName: z.string().max(255).describe("operation name").optional(),
